@@ -26,6 +26,7 @@ type tokenStorage struct {
 	TokenEndpoint string `json:"token_endpoint,omitempty"`
 	AuthKind      string `json:"auth_kind,omitempty"`
 	UsingAPI      any    `json:"using_api,omitempty"`
+	Prefix        string `json:"prefix,omitempty"`
 }
 
 // buildTokenStorage converts fresh token data into the persisted storage shape.
@@ -124,6 +125,10 @@ func buildAuthData(storage *tokenStorage, fileName string) (*authData, error) {
 	}
 	usingAPI := storage.usingAPI()
 	baseURL := authBaseURL(storage, usingAPI)
+	prefix := strings.TrimSpace(storage.Prefix)
+	if prefix == "" {
+		prefix = pluginPrefix
+	}
 	attributes := map[string]string{
 		"base_url":                         baseURL,
 		"api_key":                          storage.AccessToken,
@@ -152,11 +157,15 @@ func buildAuthData(storage *tokenStorage, fileName string) (*authData, error) {
 	if storage.UsingAPI != nil {
 		metadata["using_api"] = usingAPI
 	}
+	if prefix != "" {
+		metadata["prefix"] = prefix
+	}
 	return &authData{
 		Provider:         pluginID,
 		ID:               fileName,
 		FileName:         fileName,
 		Label:            label,
+		Prefix:           prefix,
 		StorageJSON:      raw,
 		Metadata:         metadata,
 		Attributes:       attributes,

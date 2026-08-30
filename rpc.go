@@ -12,6 +12,12 @@ type envelope struct {
 	Error  *envelopeError  `json:"error,omitempty"`
 }
 
+// rpcRegistration mirrors the host's plugin.register/reconfigure request.
+type rpcRegistration struct {
+	SchemaVersion uint32 `json:"schema_version"`
+	ConfigYAML    []byte `json:"config_yaml"`
+}
+
 type envelopeError struct {
 	Code       string `json:"code"`
 	Message    string `json:"message"`

@@ -47,6 +47,11 @@ func registrationPayload() registrationResponse {
 func dispatch(method string, request []byte) ([]byte, error) {
 	switch method {
 	case "plugin.register", "plugin.reconfigure":
+		var req rpcRegistration
+		if err := decodeRequest(request, &req); err != nil {
+			return errorEnvelope("bad_request", err.Error()), nil
+		}
+		setPluginConfig(req.ConfigYAML)
 		return okEnvelope(registrationPayload())
 	case "plugin.shutdown":
 		return okEnvelope(struct{}{})
