@@ -6,10 +6,17 @@ import (
 )
 
 const (
-	// pluginID is the provider identifier exposed via auth.identifier and the
-	// provider key stamped on auth records. It deliberately differs from the
-	// built-in "xai" provider so the plugin can coexist with it.
+	// pluginID is the registry identity of this plugin: the name the host uses
+	// for the plugins.configs.<pluginID> block, the auth file name prefix, and
+	// the provider key on registered models. It stays "xai-oauth" so the plugin
+	// never collides with built-in "xai" auth files or the model registry.
 	pluginID = "xai-oauth"
+	// authProviderID is the provider string stamped on auth records and matched
+	// against the host's plugin auth identifiers (auth.identifier, parse,
+	// refresh, login polling). It is deliberately "xai" so the management panel
+	// renders the plugin's auth cards with the built-in xai theme (solid
+	// borders) instead of the unknown fallback (dashed borders).
+	authProviderID = "xai"
 	// schemaVersion is the RPC contract version this plugin speaks.
 	schemaVersion = 1
 )
@@ -56,7 +63,7 @@ func dispatch(method string, request []byte) ([]byte, error) {
 	case "plugin.shutdown":
 		return okEnvelope(struct{}{})
 	case "auth.identifier":
-		return okEnvelope(map[string]string{"identifier": pluginID})
+		return okEnvelope(map[string]string{"identifier": authProviderID})
 	case "auth.parse":
 		return handleAuthParse(request)
 	case "auth.login.start":

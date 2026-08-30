@@ -24,7 +24,7 @@ func TestBuildAuthDataDefaultsToChatProxy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildAuthData: %v", err)
 	}
-	if data.Provider != pluginID {
+	if data.Provider != authProviderID {
 		t.Fatalf("unexpected provider: %s", data.Provider)
 	}
 	if data.Attributes["base_url"] != cliChatProxyBaseURL {
@@ -59,8 +59,8 @@ func TestBuildAuthDataDefaultsToChatProxy(t *testing.T) {
 	if err := json.Unmarshal(data.StorageJSON, &storage); err != nil {
 		t.Fatalf("decode storage: %v", err)
 	}
-	if storage.Type != pluginID {
-		t.Fatalf("storage type should be plugin id, got %s", storage.Type)
+	if storage.Type != authProviderID {
+		t.Fatalf("storage type should be the xai auth provider, got %s", storage.Type)
 	}
 	if storage.TokenEndpoint != "https://auth.x.ai/token" {
 		t.Fatalf("unexpected token endpoint: %s", storage.TokenEndpoint)
@@ -129,19 +129,19 @@ func TestHandleAuthParseAcceptsPluginFilesOnly(t *testing.T) {
 		t.Fatalf("unexpected label: %s", parsed.Auth.Label)
 	}
 
-	// Built-in xai files must not be claimed by the plugin.
-	builtin := []byte(`{"type":"xai","access_token":"a","refresh_token":"r"}`)
-	request, _ = json.Marshal(authParseRequest{FileName: "xai-user@example.com.json", RawJSON: builtin})
+	// Auth files owned by other providers must not be claimed by the plugin.
+	other := []byte(`{"type":"copilot","access_token":"a","refresh_token":"r"}`)
+	request, _ = json.Marshal(authParseRequest{FileName: "copilot-user@example.com.json", RawJSON: other})
 	response, err = dispatch("auth.parse", request)
 	if err != nil {
-		t.Fatalf("dispatch auth.parse builtin: %v", err)
+		t.Fatalf("dispatch auth.parse other: %v", err)
 	}
 	parsed = authParseResponse{}
 	if err := json.Unmarshal(envelopeResult(t, response), &parsed); err != nil {
-		t.Fatalf("decode builtin response: %v", err)
+		t.Fatalf("decode other response: %v", err)
 	}
 	if parsed.Handled {
-		t.Fatalf("built-in xai files must not be handled by the plugin")
+		t.Fatalf("other providers' files must not be handled by the plugin")
 	}
 }
 

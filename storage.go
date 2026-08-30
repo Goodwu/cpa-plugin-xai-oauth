@@ -9,7 +9,7 @@ import (
 )
 
 // tokenStorage mirrors the built-in xai auth file shape so credentials stay
-// recognizable. The host stamps "type" with the plugin provider key on save.
+// recognizable. The host stamps "type" with the provider key on save.
 type tokenStorage struct {
 	Type          string `json:"type"`
 	AccessToken   string `json:"access_token"`
@@ -35,7 +35,7 @@ func buildTokenStorage(data *tokenData, tokenEndpoint string) *tokenStorage {
 		return nil
 	}
 	return &tokenStorage{
-		Type:          pluginID,
+		Type:          authProviderID,
 		AccessToken:   data.AccessToken,
 		RefreshToken:  data.RefreshToken,
 		IDToken:       data.IDToken,
@@ -161,7 +161,7 @@ func buildAuthData(storage *tokenStorage, fileName string) (*authData, error) {
 		metadata["prefix"] = prefix
 	}
 	return &authData{
-		Provider:         pluginID,
+		Provider:         authProviderID,
 		ID:               fileName,
 		FileName:         fileName,
 		Label:            label,

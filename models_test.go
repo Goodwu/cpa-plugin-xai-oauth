@@ -183,7 +183,7 @@ func TestDispatchRegistrationAndIdentifier(t *testing.T) {
 		t.Fatalf("dispatch identifier: %v", err)
 	}
 	result := envelopeResult(t, response)
-	if !bytesContain(result, pluginID) {
-		t.Fatalf("identifier should be %s: %s", pluginID, result)
+	if !bytesContain(result, authProviderID) {
+		t.Fatalf("identifier should be %s: %s", authProviderID, result)
 	}
 }

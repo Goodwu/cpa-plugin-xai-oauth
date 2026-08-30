@@ -128,7 +128,7 @@ func handleAuthParse(request []byte) ([]byte, error) {
 	if err := decodeRequest(request, &req); err != nil {
 		return errorEnvelope("bad_request", err.Error()), nil
 	}
-	if storageType(req.RawJSON) != pluginID {
+	if storageType(req.RawJSON) != authProviderID {
 		return okEnvelope(authParseResponse{Handled: false})
 	}
 	storage, err := parseTokenStorage(req.RawJSON)
@@ -188,7 +188,7 @@ func handleLoginStart(request []byte) ([]byte, error) {
 		NextAttempt:   now,
 	})
 	return okEnvelope(loginStartResponse{
-		Provider:  pluginID,
+		Provider:  authProviderID,
 		URL:       loginURL,
 		State:     state,
 		ExpiresAt: expiresAt.UTC(),

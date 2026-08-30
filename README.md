@@ -5,7 +5,11 @@ as an external dynamic-library plugin for
 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI). It ships as a
 separate provider key `xai-oauth` and coexists with the built-in `xai`
 provider (which continues to serve `xai-api-key` config entries and the
-Responses-API/websocket/chat-proxy special paths).
+Responses-API/websocket/chat-proxy special paths). Its auth identity is
+`xai` — the same provider string the built-in xAI auth uses — so credential
+files and management-panel rendering match the built-in provider, while
+model registration keeps the distinct `xai-oauth` key ("Storage
+compatibility" below).
 
 ## Capabilities
 
@@ -93,11 +97,13 @@ Returns `{ "url": "...", "state": "..." }`. Open the URL in a browser to
 authorize (Grok device flow), then poll
 `GET /v0/management/get-auth-status?state=<state>` until `status=ok`. The
 credential is saved to `auths/xai-oauth-<email>.json` with
-`type: "xai-oauth"`, `auth_kind: oauth`, and
+`type: "xai"`, `auth_kind: oauth`, and
 `base_url: https://api.x.ai/v1`; the host routes chat to the Grok CLI
 chat proxy by default (mirroring the built-in OAuth behavior, via attributes).
 
-The management WebUI lists plugin providers on its OAuth login page.
+The management WebUI lists plugin providers on its OAuth login page; because
+the auth identity is `xai`, plugin credentials render with the built-in xAI
+theme (solid card outlines) instead of the generic dashed fallback.
 
 ## Model discovery
 
@@ -117,9 +123,23 @@ Toggling is supported via the credential file:
 The persisted JSON intentionally mirrors the built-in xAI credential shape
 (`access_token`, `refresh_token`, `id_token`, `expired`, `last_refresh`,
 `email`, `sub`, `base_url`, `token_endpoint`, `auth_kind`, `using_api`).
-Files with `type: "xai-oauth"` are parsed by this plugin; files with
-`type: "xai"` belong to the built-in provider and are explicitly not claimed
-by the plugin parser.
+
+The plugin's auth identity is `xai`: `auth.identifier` and the `Provider`
+stamped on saved credentials both report `xai`, and files are written as
+`xai-oauth-<email>.json` with `type: "xai"`. The host matches an auth file
+to a plugin by exactly this string on every path (file loading, refresh,
+login polling, model discovery, executor wrapping, management panel), so
+the two must agree. While the plugin is enabled it therefore owns
+`type: "xai"` credential files; the built-in `xai` provider still handles
+`xai-api-key` config entries and its Responses-API/websocket/chat-proxy
+special paths. Model registration keeps the distinct `xai-oauth` provider
+key, so routing never depends on the auth identity.
+
+Upgrading from v0.1.1 (or older): files written by those releases carry
+`type: "xai-oauth"` and are no longer claimed by the plugin, so they stop
+appearing in the management panel. Rewrite the `type` field to `"xai"` in
+each file (the host restamps it on the next refresh/login), or delete them
+and log in again.
 
 ## Known limitations (compared to the built-in xai provider)
 

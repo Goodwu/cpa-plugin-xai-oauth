@@ -64,7 +64,7 @@ func TestLoginStartAndPollFlow(t *testing.T) {
 	setDefaultPollInterval(time.Nanosecond)
 	defer setDefaultPollInterval(5 * time.Second)
 
-	startRequest, _ := json.Marshal(loginStartRequest{Provider: pluginID})
+	startRequest, _ := json.Marshal(loginStartRequest{Provider: authProviderID})
 	response, err := dispatch("auth.login.start", startRequest)
 	if err != nil {
 		t.Fatalf("dispatch start: %v", err)
@@ -73,7 +73,7 @@ func TestLoginStartAndPollFlow(t *testing.T) {
 	if err := json.Unmarshal(envelopeResult(t, response), &started); err != nil {
 		t.Fatalf("decode start: %v", err)
 	}
-	if started.Provider != pluginID || started.State == "" {
+	if started.Provider != authProviderID || started.State == "" {
 		t.Fatalf("unexpected start response: %+v", started)
 	}
 	if !strings.Contains(started.URL, "auth.x.ai") {
@@ -84,7 +84,7 @@ func TestLoginStartAndPollFlow(t *testing.T) {
 	}
 
 	// First poll hits authorization_pending.
-	pollRequest, _ := json.Marshal(loginPollRequest{Provider: pluginID, State: started.State, Metadata: started.Metadata})
+	pollRequest, _ := json.Marshal(loginPollRequest{Provider: authProviderID, State: started.State, Metadata: started.Metadata})
 	response, err = dispatch("auth.login.poll", pollRequest)
 	if err != nil {
 		t.Fatalf("dispatch poll: %v", err)
@@ -161,7 +161,7 @@ func TestLoginPollRebuildsSessionFromMetadata(t *testing.T) {
 		"login_interval_seconds": "1",
 		"login_expires_at":       time.Now().Add(10 * time.Minute).UTC().Format(time.RFC3339),
 	}
-	pollRequest, _ := json.Marshal(loginPollRequest{Provider: pluginID, State: "restored-state", Metadata: metadata})
+	pollRequest, _ := json.Marshal(loginPollRequest{Provider: authProviderID, State: "restored-state", Metadata: metadata})
 	response, err := dispatch("auth.login.poll", pollRequest)
 	if err != nil {
 		t.Fatalf("dispatch: %v", err)
