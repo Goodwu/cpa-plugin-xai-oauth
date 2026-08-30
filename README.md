@@ -157,6 +157,12 @@ and log in again.
   what chat-proxy expects, identity-header requests may fail; bump it to the
   same value the core uses (`internal/runtime/executor/xai_executor.go`).
 
+A prioritized plan to port the built-in Responses-API path into this plugin
+(executor capability, task breakdown, LOC/effort estimates, and the
+build-vs-skip decision lines) lives in
+[`docs/PLAN-xai-responses-executor.md`](docs/PLAN-xai-responses-executor.md).
+It is analysis-only: nothing there is implemented yet.
+
 ## Files
 
 | File | Purpose |
