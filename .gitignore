@@ -1,5 +1,8 @@
 # Build artifacts
 bin/
+build/
+dist/
+.cache/
 *.dylib
 *.so
 *.dll
@@ -7,3 +10,6 @@ bin/
 
 # Editor / OS
 .DS_Store
+
+# Local agent session state
+.zcode/

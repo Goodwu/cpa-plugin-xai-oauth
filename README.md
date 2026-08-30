@@ -23,7 +23,8 @@ route requests, and `header:*` attributes carry the Grok CLI identity headers
 
 ## Build & install
 
-Requires Go 1.26+ with CGO enabled.
+Requires Go 1.26+ with CGO enabled (Linux release builds additionally
+require Docker).
 
 ```bash
 make build   # runs vet + tests, then builds bin/xai-oauth-v<version>.<ext>
@@ -36,6 +37,33 @@ relative to the server working directory). You can also just drop the file
 into the plugins directory directly. The artifact name follows the host's
 plugin file convention (`xai-oauth-v0.1.0.dylib` on macOS, `.so` on Linux,
 `.dll` on Windows).
+
+The version is defined once in the `Makefile` (`VERSION ?= 0.1.0`) and
+injected at link time via `-ldflags -X`, so the registration metadata, the
+artifact file name, and the release assets always agree.
+
+Release packaging for the four supported platforms:
+
+```bash
+make package-linux-amd64   # builds inside Docker (glibc-pinned image)
+make package-linux-arm64
+make package-darwin-amd64  # requires a Darwin host
+make package-darwin-arm64
+# -> dist/xai-oauth_<version>_<goos>_<arch>.zip + dist/checksums.txt
+```
+
+Each zip contains only the shared library (root-level file name), matching
+the host's plugin store layout.
+
+## CI and releases
+
+- `push`/`pull_request` runs the CI workflow: `go vet` + `go test` on
+  Linux, plus a four-platform package matrix (linux/amd64, linux/arm64,
+  darwin/amd64, darwin/arm64) that uploads the zips as artifacts. Pushes
+  never publish a release.
+- Pushing a semver tag `vX.Y.Z` runs the release workflow: validates the
+  tag, builds all four platforms, and creates a GitHub Release containing
+  the four platform zips plus `checksums.txt`.
 
 ## Enable
 
@@ -121,7 +149,10 @@ by the plugin parser.
 | `storage.go` | credential JSON shape, AuthData assembly |
 | `models.go` | `model.for_auth` discovery + catalog merge (ported from `sdk/cliproxy/xai_models.go`) |
 | `catalog.go` / `catalog.json` | embedded static model metadata |
-| `Makefile` | build/install |
+| `Makefile` | build/install + 4-platform release packaging |
+| `scripts/package-release.sh` | zip + sha256 packaging for release assets |
+| `.github/workflows/ci.yml` | CI: vet/test + 4-platform package matrix |
+| `.github/workflows/release.yml` | tag-triggered GitHub Release publishing |
 
 ## Credits & license
 

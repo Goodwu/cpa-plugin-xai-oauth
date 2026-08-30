@@ -10,11 +10,14 @@ const (
 	// provider key stamped on auth records. It deliberately differs from the
 	// built-in "xai" provider so the plugin can coexist with it.
 	pluginID = "xai-oauth"
-	// pluginVersion is reported in registration metadata and file names.
-	pluginVersion = "0.1.0"
 	// schemaVersion is the RPC contract version this plugin speaks.
 	schemaVersion = 1
 )
+
+// pluginVersion is reported in registration metadata and file names. The
+// Makefile overrides it at link time via -ldflags -X; the literal is a
+// fallback for plain `go build` invocations.
+var pluginVersion = "0.1.0"
 
 type registrationResponse struct {
 	SchemaVersion uint32         `json:"schema_version"`
