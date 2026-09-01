@@ -61,10 +61,23 @@ type modelsPayload struct {
 	Models *[]remoteModel `json:"models"`
 }
 
+// handleStaticModels returns no models on purpose: the Grok chat-proxy
+// /models response is already account-filtered, and per-auth discovery
+// (model.for_auth) is the only source of truth. Publishing the full catalog
+// statically made unusable models appear in /v1/models for every account;
+// request routing never consulted the static registration anyway (the host
+// gates auth selection on the per-auth client->model mapping), so the list
+// was purely a discoverability surface. The catalog stays embedded as
+// metadata backfill for discovered models (mergeModels).
 func handleStaticModels(request []byte) ([]byte, error) {
-	return okEnvelope(modelResponse{Provider: pluginID, Models: catalogModels()})
+	return okEnvelope(modelResponse{Provider: pluginID, Models: []wireModelInfo{}})
 }
 
+// handleModelsForAuth returns the account-filtered remote model list. The
+// response Provider must match the credential's auth identity ("xai"): the
+// host discards per-auth results whose provider differs (pluginhost
+// adapters.go ModelsForAuth) and silently falls back to the built-in static
+// registry list, which resurrects every model regardless of account.
 func handleModelsForAuth(request []byte) ([]byte, error) {
 	var req authModelRequest
 	if err := decodeRequest(request, &req); err != nil {
@@ -80,7 +93,7 @@ func handleModelsForAuth(request []byte) ([]byte, error) {
 	if err != nil {
 		return httpErrorEnvelope(http.StatusBadGateway, err.Error()), nil
 	}
-	return okEnvelope(modelResponse{Provider: pluginID, Models: models})
+	return okEnvelope(modelResponse{Provider: authProviderID, Models: models})
 }
 
 // credentialToken resolves the bearer token from attributes, metadata, then storage.

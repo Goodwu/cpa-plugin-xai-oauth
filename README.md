@@ -107,11 +107,30 @@ theme (solid card outlines) instead of the generic dashed fallback.
 
 ## Model discovery
 
+Models are discovered **per account** and the list is account-filtered:
 `model.for_auth` fetches `<base>/models` with the Grok CLI identity headers
-and merges the result with the embedded static catalog (`catalog.json`,
-trimmed from `internal/registry/models/models.json`). Discovered
-`reasoning_efforts` map to thinking levels. Failures are reported to the
-host, which then skips registration for that auth (fail-closed).
+(the chat-proxy returns only the models the signed-in Grok account can
+actually use) and merges each with the embedded static catalog
+(`catalog.json`, trimmed from `internal/registry/models/models.json`) to
+backfill metadata such as context length. Discovered `reasoning_efforts`
+map to thinking levels. Failures are reported to the host, which then skips
+registration for that auth (fail-closed).
+
+`model.static` deliberately returns an empty list: the host registers static
+models globally, independent of any credential, so publishing the catalog
+there would surface models the current account cannot use (they would appear
+in `/v1/models` but fail at auth selection). Request routing is unaffected
+either way — auth selection always gates on the per-auth registration. The
+practical consequence is that no `xai-oauth` models appear until you log in.
+
+The `model.for_auth` response carries `Provider: "xai"` (the credential's
+auth identity), not the `xai-oauth` model key: the host discards per-auth
+results whose provider does not match the auth identity and silently falls
+back to the built-in static xAI model list, which would defeat the filtering.
+
+The credential `prefix` (host `force-model-prefix: true`) controls the
+served model IDs: with `prefix: "xai"` the base ID is dropped and models are
+only reachable under the `xai/<model>` alias (e.g. `xai/grok-4.6`).
 
 Toggling is supported via the credential file:
 

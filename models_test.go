@@ -87,6 +87,28 @@ func TestHandleModelsForAuthRequiresToken(t *testing.T) {
 	}
 }
 
+// TestHandleStaticModelsEmpty guards the account-filtering fix: the host
+// registers `model.static` globally (not per auth), so publishing the full
+// catalog here would surface models the logged-in account cannot use.
+// Per-auth discovery is the only model source; catalog.json remains metadata
+// backfill for mergeModels.
+func TestHandleStaticModelsEmpty(t *testing.T) {
+	response, err := dispatch("model.static", []byte(`{}`))
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	var models modelResponse
+	if err := json.Unmarshal(envelopeResult(t, response), &models); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if models.Provider != pluginID {
+		t.Fatalf("unexpected provider: %+v", models)
+	}
+	if len(models.Models) != 0 {
+		t.Fatalf("static models must be empty (per-auth discovery is account-filtered), got %d", len(models.Models))
+	}
+}
+
 func TestHandleModelsForAuthUpstream(t *testing.T) {
 	var gotAuth, gotTokenAuth, gotVersion, gotUA string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +160,7 @@ func TestHandleModelsForAuthUpstream(t *testing.T) {
 	if err := json.Unmarshal(envelopeResult(t, response), &models); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if models.Provider != pluginID || len(models.Models) != 1 {
+	if models.Provider != authProviderID || len(models.Models) != 1 {
 		t.Fatalf("unexpected models response: %+v", models)
 	}
 	if models.Models[0].ID != "grok-4.6" || models.Models[0].Thinking == nil {
