@@ -30,8 +30,19 @@ func TestBuildAuthDataDefaultsToChatProxy(t *testing.T) {
 	if data.Attributes["base_url"] != cliChatProxyBaseURL {
 		t.Fatalf("expected chat proxy base URL, got %s", data.Attributes["base_url"])
 	}
-	if data.Attributes["api_key"] != "access-1" {
-		t.Fatalf("expected access token as api_key, got %q", data.Attributes["api_key"])
+	if data.Attributes["api_key"] != "" {
+		t.Fatalf("api_key attribute must not be set: it pins a stale bearer (xaiCreds prefers attributes over metadata), got %q", data.Attributes["api_key"])
+	}
+	if data.Metadata["access_token"] != "access-1" {
+		t.Fatalf("expected access token in metadata for the built-in refresh chain, got %v", data.Metadata["access_token"])
+	}
+	if data.Metadata["refresh_token"] != "refresh-1" {
+		t.Fatalf("expected refresh token in metadata, got %v", data.Metadata["refresh_token"])
+	}
+	for _, key := range []string{"expired", "last_refresh", "token_endpoint"} {
+		if v, _ := data.Metadata[key].(string); v == "" {
+			t.Fatalf("metadata should carry %q for expiry-aware scheduling", key)
+		}
 	}
 	if data.Attributes["auth_kind"] != "oauth" {
 		t.Fatalf("expected oauth auth kind")
@@ -195,8 +206,11 @@ func TestHandleAuthRefreshPreservesUserRouting(t *testing.T) {
 	if refreshed.Auth.Attributes["base_url"] != "https://proxy.example.com/v1" {
 		t.Fatalf("attributes should carry custom base URL, got %s", refreshed.Auth.Attributes["base_url"])
 	}
-	if refreshed.Auth.Attributes["api_key"] != "access-2" {
-		t.Fatalf("attributes should carry refreshed token, got %s", refreshed.Auth.Attributes["api_key"])
+	if refreshed.Auth.Metadata["access_token"] != "access-2" {
+		t.Fatalf("metadata should carry refreshed token, got %v", refreshed.Auth.Metadata["access_token"])
+	}
+	if refreshed.Auth.Metadata["refresh_token"] != "refresh-1" {
+		t.Fatalf("unrotated refresh token should be preserved into metadata, got %v", refreshed.Auth.Metadata["refresh_token"])
 	}
 }
 

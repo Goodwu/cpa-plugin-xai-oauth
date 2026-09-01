@@ -268,11 +268,17 @@ func handleAuthRefresh(request []byte) ([]byte, error) {
 	}
 	// Preserve user-edited routing fields and roll the access token forward.
 	usingAPI := storage.UsingAPI
+	oldRefreshToken := storage.RefreshToken
 	explicitBaseURL := strings.TrimRight(strings.TrimSpace(storage.BaseURL), "/")
 	if strings.EqualFold(explicitBaseURL, defaultAPIBaseURL) || strings.EqualFold(explicitBaseURL, cliChatProxyBaseURL) {
 		explicitBaseURL = ""
 	}
 	storage = buildTokenStorage(token, tokenEndpoint)
+	// xAI's token endpoint omits refresh_token when it does not rotate; keep the
+	// stored one so the credential stays refreshable.
+	if strings.TrimSpace(storage.RefreshToken) == "" {
+		storage.RefreshToken = oldRefreshToken
+	}
 	storage.UsingAPI = usingAPI
 	if explicitBaseURL != "" {
 		storage.BaseURL = explicitBaseURL

@@ -112,8 +112,8 @@ func TestLoginStartAndPollFlow(t *testing.T) {
 	if completed.Auth.FileName != "xai-oauth-user@example.com.json" {
 		t.Fatalf("unexpected auth file name: %s", completed.Auth.FileName)
 	}
-	if completed.Auth.Attributes["api_key"] != "access-1" {
-		t.Fatalf("auth attributes should carry the access token")
+	if completed.Auth.Metadata["access_token"] != "access-1" {
+		t.Fatalf("auth metadata should carry the access token for the built-in refresh chain")
 	}
 
 	// The in-memory session is consumed after success; further polls of the

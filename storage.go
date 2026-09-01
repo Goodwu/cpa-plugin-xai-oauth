@@ -109,8 +109,20 @@ func sanitizeFileSegment(value string) string {
 }
 
 // buildAuthData assembles the wire AuthData for a credential: storage JSON plus
-// the attributes the host's OpenAI-compat executor consumes for routing
-// (base_url, api_key bearer, custom headers) and model discovery.
+// the attributes the host executor consumes for routing (base_url, custom
+// headers) and model discovery.
+//
+// The credential fields the built-in xai executor's refresh chain reads live in
+// Metadata, not StorageJSON: since the auth provider identity is "xai", the host
+// binds the native XAI(Auto)Executor to this auth, and its Refresh resolves
+// refresh_token/token_endpoint from Metadata (xai_executor_auth.go). Mirroring
+// access_token/refresh_token/expired/last_refresh here is what enables
+// scheduled refresh and the 401 refresh-retry; without them every refresh is a
+// silent no-op and the token expires in place.
+//
+// Attributes deliberately does NOT carry api_key: xaiCreds() prefers the stale
+// attribute over the metadata access_token, and the attribute is only rebuilt on
+// parse, so keeping it would send expired bearer tokens after a refresh.
 func buildAuthData(storage *tokenStorage, fileName string) (*authData, error) {
 	if storage == nil {
 		return nil, fmt.Errorf("xai-oauth: storage is nil")
@@ -131,7 +143,6 @@ func buildAuthData(storage *tokenStorage, fileName string) (*authData, error) {
 	}
 	attributes := map[string]string{
 		"base_url":                         baseURL,
-		"api_key":                          storage.AccessToken,
 		"auth_kind":                        "oauth",
 		"using_api":                        strconv.FormatBool(usingAPI),
 		"header:" + tokenAuthHeader:        tokenAuthValue,
@@ -141,6 +152,18 @@ func buildAuthData(storage *tokenStorage, fileName string) (*authData, error) {
 	}
 	metadata := map[string]any{
 		"auth_kind": "oauth",
+	}
+	if storage.AccessToken != "" {
+		metadata["access_token"] = storage.AccessToken
+	}
+	if storage.RefreshToken != "" {
+		metadata["refresh_token"] = storage.RefreshToken
+	}
+	if storage.Expire != "" {
+		metadata["expired"] = storage.Expire
+	}
+	if storage.LastRefresh != "" {
+		metadata["last_refresh"] = storage.LastRefresh
 	}
 	if storage.Email != "" {
 		metadata["email"] = storage.Email
@@ -169,7 +192,7 @@ func buildAuthData(storage *tokenStorage, fileName string) (*authData, error) {
 		StorageJSON:      raw,
 		Metadata:         metadata,
 		Attributes:       attributes,
-		NextRefreshAfter: formatNextRefreshAfter(storage.ExpiresIn),
+		NextRefreshAfter: formatNextRefreshAfter(storage.Expire, storage.ExpiresIn),
 	}, nil
 }
 
@@ -208,11 +231,26 @@ func authBaseURL(storage *tokenStorage, usingAPI bool) string {
 	return cliChatProxyBaseURL
 }
 
-// formatNextRefreshAfter returns the RFC3339 refresh time for an expires_in value.
-func formatNextRefreshAfter(expiresIn int) string {
+// formatNextRefreshAfter returns the RFC3339 time at which the host should next
+// refresh the credential. The absolute expiry timestamp wins: parsing an
+// already-expired or partially-consumed credential must schedule the refresh
+// relative to real expiry, not "now + expires_in" (which would defer a stale
+// token by a full lifetime every time the host re-parses its file). Only when
+// no usable timestamp exists does it fall back to the relative window, clamped
+// so the delay never exceeds expires_in.
+func formatNextRefreshAfter(expiresAt string, expiresIn int) string {
 	now := time.Now().UTC()
-	if expiresIn <= 0 {
-		return now.Add(time.Hour).Format(time.RFC3339)
+	if expiry, err := time.Parse(time.RFC3339, strings.TrimSpace(expiresAt)); err == nil && !expiry.IsZero() {
+		due := expiry.Add(-refreshLead)
+		if expiresIn > 0 {
+			if earliest := now.Add(time.Duration(expiresIn) * time.Second); earliest.Before(due) {
+				due = earliest
+			}
+		}
+		if due.Before(now.Add(15 * time.Second)) {
+			due = now.Add(15 * time.Second)
+		}
+		return due.Format(time.RFC3339)
 	}
 	delay := time.Duration(expiresIn)*time.Second - refreshLead
 	if delay < time.Minute {

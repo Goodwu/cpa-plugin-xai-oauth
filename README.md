@@ -149,6 +149,21 @@ The persisted JSON intentionally mirrors the built-in xAI credential shape
 (`access_token`, `refresh_token`, `id_token`, `expired`, `last_refresh`,
 `email`, `sub`, `base_url`, `token_endpoint`, `auth_kind`, `using_api`).
 
+Because the auth identity is `xai`, the host binds the **built-in** xAI
+executor chain to these auths — for inference and for credential refresh
+alike. That chain reads its inputs from auth *metadata*, not the storage
+JSON, so `buildAuthData` mirrors `access_token`, `refresh_token`, `expired`,
+and `last_refresh` into `Metadata` on every parse/login/refresh. Without the
+mirror, `XAIExecutor.Refresh` finds no `refresh_token`, returns the auth
+unchanged as a silent "success", the 401 retry gate (`authHasRefreshToken`)
+never fires, and tokens expire in place. For the same reason the attributes
+deliberately omit `api_key`: `xaiCreds()` prefers the attribute over the
+metadata token, and attributes are only rebuilt on parse, so a pinned
+`api_key` would keep sending the stale bearer after a refresh. Routing
+attributes (`base_url`, `using_api`, Grok CLI identity headers) stay in
+`Attributes`; the chat-proxy identity headers there remain correct because
+the built-in executor re-applies its own set from `using_api` + `base_url`.
+
 The plugin's auth identity is `xai`: `auth.identifier` and the `Provider`
 stamped on saved credentials both report `xai`, and files are written as
 `xai-oauth-<email>.json` with `type: "xai"`. The host matches an auth file
@@ -168,19 +183,19 @@ and log in again.
 
 ## Known limitations (compared to the built-in xai provider)
 
-- Chat goes through the generic OpenAI-compatible path
-  (`/chat/completions`), not the Responses API. The Grok CLI chat proxy
-  accepts both endpoints, but Responses-only features are unavailable:
-  `/responses/compact`, reasoning `encrypted_content` replay, x_search tool
-  filtering, free-usage cooldown handling, and downstream websocket
-  passthrough (`/v1/responses` websocket mode).
+- None on the inference path anymore: since the auth identity is `xai`, the
+  host binds the built-in xAI executor chain (`XAIAutoExecutor` →
+  Responses API on the Grok CLI chat proxy, with compact, reasoning replay,
+  x_search handling, cooldown mapping, and 401 refresh-retry) to plugin
+  auths. The plugin itself only owns login, parsing, refresh RPC, and model
+  discovery. The built-in executor's Grok client-version constants live in
+  `internal/runtime/executor/xai_executor.go`; the plugin keeps its own
+  `grokClientVersion` in `oauth.go` in sync for its direct API calls
+  (device flow, `/models`).
 - Media generation routes (`/v1/videos`, image generation) are not exposed
   for `xai-oauth` auths; use the built-in provider or an xAI API key for those.
 - The Grok Shell (`grokbuild`) UA model listing is not served for
   `xai-oauth` (it filters to built-in `xai` auths).
-- If the Grok client version (`grokClientVersion` in `oauth.go`) drifts from
-  what chat-proxy expects, identity-header requests may fail; bump it to the
-  same value the core uses (`internal/runtime/executor/xai_executor.go`).
 
 A prioritized plan to port the built-in Responses-API path into this plugin
 (executor capability, task breakdown, LOC/effort estimates, and the

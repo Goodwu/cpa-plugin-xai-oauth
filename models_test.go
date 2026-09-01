@@ -136,7 +136,9 @@ func TestHandleModelsForAuthUpstream(t *testing.T) {
 		attributes[key] = value
 	}
 	attributes["base_url"] = server.URL // route discovery through the loopback server
-	request, _ := json.Marshal(authModelRequest{Attributes: attributes})
+	// Mirror the host's AuthModelRequest: attributes no longer carry api_key,
+	// so credentialToken must fall through to metadata/storage like it does live.
+	request, _ := json.Marshal(authModelRequest{Attributes: attributes, Metadata: data.Metadata, StorageJSON: data.StorageJSON})
 	original := newOAuthClientFor
 	newOAuthClientFor = func(hostConfigSummary) *oauthClient {
 		client := newOAuthClient("")
