@@ -12,8 +12,18 @@
 # The version lives here and is injected at link time
 # (-ldflags -X main.pluginVersion=$(VERSION)), so the registration metadata,
 # artifact file names, and release assets always agree.
-
-VERSION ?= 0.1.0
+#
+# Default is derived from git: an exact release tag yields that tag (v0.1.3 ->
+# 0.1.3); otherwise the nearest tag plus the short commit id
+# (v0.1.2-2-gd01dfda -> 0.1.2-gd01dfda, dirty trees get a -dirty suffix). The
+# describe commit count is dropped because the host picks the highest version
+# per plugin id by comparing dot-separated segments numerically and falling
+# back to string compare: "0.1.2-2-gd01dfda" vs "0.1.2-10-gd01dfda" would
+# order wrongly, "0.1.2-gd01dfda" stays comparable against release tags.
+# CI and releases pass VERSION= explicitly, which always wins.
+GIT_DESCRIBE := $(shell git describe --tags --match 'v[0-9]*' --dirty 2>/dev/null || git describe --always 2>/dev/null)
+GIT_VERSION := $(shell echo '$(GIT_DESCRIBE)' | sed -E 's/^v//; s/-[0-9]+-g/-g/; s/^([0-9a-f]{7,})$$/0.0.0-g\1/')
+VERSION ?= $(if $(GIT_VERSION),$(GIT_VERSION),0.1.0)
 PLUGIN_ID := xai-oauth
 
 GO_IMAGE ?= docker.io/library/golang:1.26-bookworm

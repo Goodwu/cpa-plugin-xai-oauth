@@ -42,9 +42,15 @@ into the plugins directory directly. The artifact name follows the host's
 plugin file convention (`xai-oauth-v0.1.0.dylib` on macOS, `.so` on Linux,
 `.dll` on Windows).
 
-The version is defined once in the `Makefile` (`VERSION ?= 0.1.0`) and
-injected at link time via `-ldflags -X`, so the registration metadata, the
-artifact file name, and the release assets always agree.
+The version is derived from git by default (`make` helpfully stamps the
+build): an exact release tag yields that tag (`v0.1.3` → `0.1.3`), otherwise
+the nearest tag plus the short commit id (`v0.1.2-2-gd01dfda` →
+`0.1.2-gd01dfda`; the describe commit-count segment is dropped so dev builds
+stay correctly ordered against release tags). Dirty trees get a `-dirty`
+suffix, and `make build VERSION=…` always overrides. It is injected at link
+time via `-ldflags -X`, so the registration metadata, the artifact file name,
+and the release assets always agree. CI passes `VERSION=` explicitly
+(tag releases use the tag; the CI matrix builds as `0.0.0`).
 
 Release packaging for the four supported platforms:
 
